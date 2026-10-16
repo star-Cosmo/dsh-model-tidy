@@ -34,7 +34,7 @@
     }
   },
   "scripts": {
-    "test": "node test/host.test.mjs && node test/client.test.mjs && node test/bulk.test.mjs && node test/coexistence.test.mjs"
+    "test": "node test/host.test.mjs && node test/client.test.mjs && node test/bulk.test.mjs && node test/render.test.mjs && node test/coexistence.test.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4"
