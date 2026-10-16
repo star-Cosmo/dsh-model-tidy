@@ -3,7 +3,10 @@
 **English** · [中文](https://github.com/star-Cosmo/dsh-model-tidy/blob/main/README.zh.md)
 
 A DeepSeek Harness plugin that keeps the model selector tidy — choose which
-models appear, and rename the ones you keep.
+models appear, give them names you recognise, and keep the billing rate the
+provider published.
+
+![The Model Tidy section](docs/screenshots/main.png)
 
 ## The problem
 
@@ -17,28 +20,52 @@ handful of models you actually use, under names you recognise.
 
 ## What it does
 
-Installing the plugin adds a **Model Tidy** section to the DSH settings with
-one row per model:
+Installing the plugin adds a **Model Tidy** section to the DSH settings. Models
+are grouped by the provider they came from, and each one carries a single switch:
 
 ```
-┌────┬──────────────────────────────┬──────────────────────────┐
-│ ☑  │ Gemini 3.8 Flash             │ [ Gemini Fast          ] │
-│    │ workbuddy · gemini-3.8-flash │                          │
-├────┼──────────────────────────────┼──────────────────────────┤
-│ ☐  │ grok-4.7                     │ [                      ] │
-│    │ workbuddy · grok-4.7         │                          │
-└────┴──────────────────────────────┴──────────────────────────┘
-    show/hide            real name        your alias
+┌─ WorkBuddy ───────────────────────────── 8/12 ─ [隐藏全部] [显示全部] ─┐
+│  Auto                                            ●───                 │
+│  GLM-5.3 · x0.79                                 ●───                 │
+│  GLM-5.2 · x0.79 · 夜间折扣          [改备注]    ───●                 │
+│  Grok-4.7 · x1.90                                ───●                 │
+└───────────────────────────────────────────────────────────────────────┘
+┌─ our-free-model ───────────────────────── 6/6 ── [隐藏全部] [显示全部] ─┐
+│  Kilo Auto Free                                  ●───                 │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Show / hide** — one switch per model. Off means it disappears from the
-  model selector.
-- **Alias** — type a name and the selector offers the model under it. Blank
-  keeps the original.
-- **Search** — filter by model, provider, or alias.
-- **Provider chips and batch toggles** — hide every model from one provider in
-  a single click.
-- **Restore** — one button clears every alias, another brings every model back.
+- **One switch per model.** Off means it disappears from the model selector.
+- **Alias.** Give a model a name you recognise and the selector offers it under
+  that name. The provider's billing suffix stays on the end.
+- **Search.** Filter by model, provider, or alias.
+- **Per-provider batch.** Hide or show everything from one provider in a click.
+- **Global show / hide.** Two buttons for the whole catalogue.
+- **Restore.** One button clears every alias, another brings every model back.
+
+## The billing rate survives a rename
+
+Providers publish rates by appending them to the model's display name —
+`GLM-5.3 · x0.79` — because the harness's model catalogue has no field for a
+rate. Replacing that name outright, which is what a naive rename does, silently
+throws the rate away.
+
+This plugin splits the name at the provider's own separator and keeps the tail:
+
+| | name shown in the selector |
+|---|---|
+| As published | `GLM-5.3 · x0.79` |
+| Renamed to "GLM cheap" | **`GLM cheap · x0.79`** |
+| Renamed, with promo badges | **`GLM cheap · x0.79 · night discount`** |
+| A model with no rate, renamed | `Automatic` ← no stray separator |
+
+## Hiding a model does not move it
+
+A hidden model is absent from the catalogue — the harness filters it — so its row
+can only be rebuilt from what was saved. Appending it, as the obvious
+implementation does, sends it to the bottom of the group the moment you hide it.
+This plugin remembers where each row was first seen, so hiding the third of five
+models leaves it third.
 
 ## What it deliberately does not do
 
@@ -60,15 +87,15 @@ providers. The plugin filters the harness's own catalogue enumeration —
 registered by other plugins through `ctx.llm.registerAdapter` and providers
 declared under `llm-pi-ai` are both covered, because both end up in it.
 
-Rows are keyed by **provider + model**, so the same model name reached through
-two routes stays two independently controlled rows: `workbuddy/gemini-3.8-flash`
-and `gemini/gemini-3.8-flash` are different upstream services and get their own
-switch and their own alias.
+Rows are keyed by **provider + model**, so the same model name reached through two
+routes stays two independently controlled rows: `workbuddy/gemini-3.8-flash` and
+`gemini/gemini-3.8-flash` are different upstream services and get their own switch
+and their own alias.
 
 ## Install
 
 ```sh
-dsh plugin --profile desktop add dsh-model-tidy
+dsh plugin --profile <your-profile> add dsh-model-tidy
 ```
 
 Then reopen the DSH Web GUI. **Model Tidy** appears in the settings navigation.
@@ -83,15 +110,17 @@ factory, the format the client module system calls.
 npm test
 ```
 
-Runs both suites. `test/host.test.mjs` drives the catalogue filter against a
-fake `llm` service; `test/client.test.mjs` loads the real browser half in a
-stand-in module environment and checks the section it registers.
+Runs seven suites — the catalogue filter, the billing-suffix split, the browser
+half's behaviour, the alias capture, row ordering, the rendered tree, and
+coexistence with another plugin that wraps the same method.
+
+`npm run check:packaging` verifies the client dependency declaration names
+packages the harness actually ships.
 
 ## Compatibility
 
-Built against DSH `0.2.0-rc.2`. Requires DSH `>= 0.2.0-rc.1`, where the
-settings layer gained the `configForms` service this plugin's section writes
-through.
+Built against DSH `0.2.0-rc.2`. Requires DSH `>= 0.2.0-rc.1`, where the settings
+layer gained the `configForms` service this plugin's section writes through.
 
 ## License
 
