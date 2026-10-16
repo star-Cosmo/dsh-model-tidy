@@ -1,16 +1,14 @@
 {
   "name": "dsh-model-tidy",
   "version": "0.1.0",
-  "description": "DeepSeek Harness plugin: keep the model selector tidy by choosing which models show up, without touching any provider configuration or running session.",
+  "description": "DeepSeek Harness plugin: keep the model selector tidy. Choose which models appear and what they are called, without touching any provider configuration or running session.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
     ".": {
-      "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
     "./client": {
-      "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
     "./package.json": "./package.json"
@@ -20,7 +18,7 @@
     "cordis.patch.yml",
     "LICENSE",
     "README.md",
-    "README.en.md"
+    "README.zh.md"
   ],
   "dsh": {
     "bundle": {
@@ -36,24 +34,13 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "test": "node test/client.test.mjs && node test/host.test.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "~3.18.4"
-  },
-  "devDependencies": {
-    "@deepseek-ai/dsh-api-remotes": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-locale": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-settings": "0.2.0-rc.2",
-    "@types/react": "^18.3.0",
-    "react": "^18.3.0",
-    "typescript": "^5.7.0"
   },
   "keywords": [
     "dsh",
@@ -62,6 +49,8 @@
     "deepseek",
     "model",
     "model-list",
+    "alias",
+    "rename",
     "visibility",
     "selector"
   ],
