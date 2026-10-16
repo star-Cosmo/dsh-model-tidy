@@ -1,0 +1,8 @@
+清理：一次性探针脚本移出仓库根目录
+
+probe-save-order.mjs 与 probe-toggle-trace.mjs 是排查时的临时诊断脚本，
+先前被误提交到了仓库根目录，会让访客看到与项目无关的文件。移入
+.market/probes/，与其余开发期资料放在一起。
+
+根目录现在只剩该有的东西：四份 README、LICENSE、package.json、
+cordis.patch.yml、PUBLISHING.md、docs/、lib/、test/ 与配置目录。
