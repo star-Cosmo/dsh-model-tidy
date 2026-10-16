@@ -55,19 +55,7 @@ if (Test-Path $local) {
 Write-Host ''
 Write-Host '--- 3) markers that prove the new build is in place ---' -ForegroundColor Cyan
 $src = Get-Content $installed -Raw
-$markers = @(
-  @{ name = 'Switch control (dsh-mt-switch)'; expect = $true },
-  @{ name = 'provider card (dsh-mt-card)';    expect = $true },
-  @{ name = 'star link (dsh-mt-star)';        expect = $true },
-  @{ name = 'hideAll on controller';          expect = $true },
-  @{ name = 'old store.rows API gone';        expect = $false }
-)
 $ok = $true
-foreach ($m in $markers) {
-  $found = $src.Contains($m.name.Split(' ')[-1].Trim('()'))
-  if ($found -ne $m.expect) { $ok = $false }
-}
-# Explicit, readable checks rather than the loop above guessing at tokens.
 $checks = @(
   @{ label = 'has Switch control';    pass = $src.Contains('dsh-mt-switch') },
   @{ label = 'has provider cards';    pass = $src.Contains('dsh-mt-card') },
@@ -80,7 +68,12 @@ foreach ($c in $checks) {
   Write-Host ("  [{0}] {1}" -f $(if ($c.pass) { 'OK' } else { '!!' }), $c.label) -ForegroundColor $colour
   if (-not $c.pass) { $ok = $false }
 }
-void $markers
+
+# A profile holding different bytes than the checkout is the failure this script
+# exists to catch, so it has to affect the verdict too.
+if ((Test-Path $local) -and ((Get-FileHash $local -Algorithm SHA256).Hash -ne (Get-FileHash $installed -Algorithm SHA256).Hash)) {
+  $ok = $false
+}
 
 Write-Host ''
 Write-Host '--- 4) does DSH need a restart? ---' -ForegroundColor Cyan
