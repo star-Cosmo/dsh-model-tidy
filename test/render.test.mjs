@@ -160,5 +160,76 @@ check('存在操作按钮', buttonCount >= 4, String(buttonCount))
 
 check('只加载 react 一个外部模块', missing.length === 0, missing.join(', '))
 
+// ── the heading survives every state ────────────────────────────────────────
+// A catalogue that is still loading, or that failed outright, must not reduce
+// the section to a bare message: the star link and the description are how a
+// user tells this page apart from an error in the shell.
+{
+  const findStar = node => {
+    let found = null
+    walk(node, n => {
+      if (n.props?.className === 'dsh-mt-star') found = n
+    })
+    return found
+  }
+
+  /** Mount another instance of the same browser half on a fresh context. */
+  const mountAgain = groups => {
+    const localReact = makeReact()
+    let desc = null
+    const win = { __ModuleLoader__: { load: d => { desc = d } } }
+    const req = spec => {
+      if (spec === 'react') return localReact
+      throw new Error(`unexpected require(${spec})`)
+    }
+    new Function('window', source)(win)
+    const localExports = desc.factory(req)
+
+    let formValue = { hidden: [], renamed: [] }
+    const localForm = {
+      getSnapshot: () => ({ status: 'ready', value: formValue, writable: true, mode: 'host' }),
+      subscribe: () => () => {},
+      set: async (field, value) => {
+        formValue = { ...formValue, [field]: value }
+        return true
+      },
+    }
+    let mounted = null
+    const localCtx = {
+      effect: fn => { fn() },
+      locale: { register: () => {}, bind: () => key => key },
+      configForms: { get: () => localForm, whileServed: (_ns, fn) => fn() },
+      slots: {
+        inject: (_name, fn) => fn(),
+        register: (d, c) => { mounted = { desc: d, comp: c }; return () => {} },
+      },
+      remote: {
+        session: { modelCatalog: async () => ({ ok: true, value: { groups } }) },
+        $on: () => () => {},
+      },
+    }
+    localExports.apply(localCtx)
+    return { section: mounted, ctx: localCtx }
+  }
+
+  // a loading panel: nothing has been loaded into the controller's store yet
+  const freshMount = mountAgain(groups)
+  const loadingTree = freshMount.section.comp(freshMount.section.desc.inject())
+  check('加载态仍有 star 按钮', findStar(loadingTree) !== null)
+  check('加载态显示加载文案', JSON.stringify(loadingTree).includes('dsh-mt-loading'))
+
+  // an error panel: the catalogue reader refuses
+  const errorMount = mountAgain(groups)
+  errorMount.ctx.remote.session.modelCatalog = async () => ({
+    ok: false,
+    error: { code: 'X', message: 'boom' },
+  })
+  const errorController = errorMount.section.desc.inject().controller
+  await errorController.load()
+  const errorTree = errorMount.section.comp(errorMount.section.desc.inject())
+  check('错误态仍有 star 按钮', findStar(errorTree) !== null)
+  check('错误态显示错误容器', JSON.stringify(errorTree).includes('dsh-mt-error'))
+}
+
 console.log(failures === 0 ? '\n=== 渲染验证通过 ===' : `\n=== ${failures} 项失败 ===`)
 process.exitCode = failures === 0 ? 0 : 1
