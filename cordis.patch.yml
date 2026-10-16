@@ -1,0 +1,8 @@
+# Bundle layer for dsh-model-tidy.
+#
+# Installing this plugin into a profile mounts the host half below; the browser
+# half is served by the client module system because package.json declares
+# `dsh.client` and exports `./client`.
+- insert:
+    - id: model-tidy
+      name: dsh-model-tidy
