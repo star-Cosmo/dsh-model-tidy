@@ -72,7 +72,7 @@ rows = ctx.slots.entries('settings.section').map(e => ({ ... }))
 **结论**：插件注册到 `settings.section` 即会出现在设置左侧导航，
 无需额外声明图标或注册权限。
 
-## 四、客户端模块格式
+## 四、客户端模块格式与 require 解析
 
 `dsh-client-ui-settings` 与官方各设置页的客户端半都是同一格式：
 
@@ -83,11 +83,32 @@ window.__ModuleLoader__.load({ id, factory: (require) => { ...; return module.ex
 `factory` 收到同步的 CommonJS `require`，`react` 由此取得，无需打包。
 本插件的客户端半与之一致。
 
+`require` 的解析顺序写在 `@deepseek-ai/dsh-client-modules` 的说明里：
+
+```
+Resolution branch order (import): seed word → shell instance;
+  memoized record → exports; graph row → register its dependency factories
+  and own factory; registered factory → materialize;
+  anything else → throw (loud)
+```
+
+**结论**：
+1. `require('react')` 走 **"shell instance"** 分支 —— 由页面外壳预置的实例解析，
+   不在 asar 的 node_modules 里（asar 全文无 react 包）。这与官方插件用法一致。
+2. 未登记的模块名会**明确抛错**（"throw (loud)"），不会静默降级。因此写错
+   模块名会立刻暴露，不存在"看着装上了其实没生效"的中间态。
+
+源码位置：`/dsh/node_modules/@deepseek-ai/dsh-client-modules/lib/client.js`
+
 ## 五、弹窗不可复用宿主组件
 
 官方设置页使用**构建期生成的 CSS 模块类名**（如 `Yf9_hG_dialog`），
 组件本身未对外导出。第三方分区拿不到这些组件，因此本插件的备注弹窗
 是自有 DOM，仅复用宿主的 `--dsw-*` 设计令牌与层级色。
+
+`createPortal` 是否可用取决于外壳提供的 React 实例，无法从 asar 静态确认 ——
+所以插件**不假设它存在**：存在则用 portal 挂到 body（脱离设置页的滚动容器），
+否则回退为内联渲染，两条路径都渲染同一棵遮罩 + 对话框结构。
 
 ## 复现方式
 
