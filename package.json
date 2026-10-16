@@ -1,6 +1,6 @@
 {
   "name": "dsh-model-tidy",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "DeepSeek Harness plugin: keep the model selector tidy. Choose which models appear and what they are called, without touching any provider configuration or running session.",
   "type": "module",
   "main": "lib/index.js",
@@ -18,7 +18,9 @@
     "cordis.patch.yml",
     "LICENSE",
     "README.md",
-    "README.zh.md"
+    "README.en.md",
+    "README.ja.md",
+    "README.ru.md"
   ],
   "dsh": {
     "bundle": {
