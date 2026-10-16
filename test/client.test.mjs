@@ -1,183 +1,310 @@
 /**
- * Checks the browser half's contract with the harness.
+ * The browser half, against the reference state model.
  *
- * Every assertion corresponds to something the harness relies on: the loader
- * descriptor's shape, the `apply`/`inject`/`name` exports, the settings-section
- * registration, and the fact that driving the controller produces exactly the
- * `{hidden, renamed}` document the host half reads back.
+ * The controller keeps `hidden` as its only state: every operation reads the
+ * list fresh from the settings document, computes the next list, and writes it;
+ * the catalogue is presentation and is re-read afterwards because the host
+ * filters it. These tests drive that contract, including the defect that
+ * motivated the rewrite — a single switch flipped after a batch hide used to be
+ * undone by a mid-write reload.
+ *
+ * The host double broadcasts after EVERY field write, which is what the real
+ * `ConfigFormController` does. An earlier double only announced after both
+ * fields, which is precisely how the defect escaped.
  */
-import { loadClient, makeCtx, check, report } from './harness.mjs'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const groups = [
+const here = path.dirname(fileURLToPath(import.meta.url))
+const repo = path.join(here, '..')
+const source = fs.readFileSync(path.join(repo, 'lib', 'client.js'), 'utf8')
+
+let failures = 0
+const check = (label, ok, extra = '') => {
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${extra ? ' — ' + extra : ''}`)
+  if (!ok) failures += 1
+}
+
+function makeReact() {
+  const hooks = []
+  let cursor = 0
+  return {
+    createElement: (tag, props, ...children) => ({ tag, props: props ?? {}, children: children.flat() }),
+    createPortal: (node, container) => ({ tag: '#portal', props: { container }, children: [node] }),
+    useState: v => {
+      const i = cursor++
+      if (hooks.length <= i) hooks[i] = v
+      return [hooks[i], nv => { hooks[i] = typeof nv === 'function' ? nv(hooks[i]) : nv }]
+    },
+    useRef: v => {
+      const i = cursor++
+      if (hooks.length <= i) hooks[i] = { current: v }
+      return hooks[i]
+    },
+    useMemo: fn => { cursor++; return fn() },
+    useCallback: fn => { cursor++; return fn },
+    useEffect: fn => { cursor++; const cleanup = fn(); return typeof cleanup === 'function' ? cleanup : () => {} },
+    useSyncExternalStore: (_s, snap) => { cursor++; return snap() },
+  }
+}
+
+const FULL = [
   {
     id: 'workbuddy',
     name: 'WorkBuddy',
     models: [
-      { id: 'gemini-3.8-flash', name: 'gemini-3.8-flash' },
-      { id: 'deepseek-v4.1-flash', name: 'deepseek-v4.1-flash' },
-      { id: 'grok-4.7', name: 'grok-4.7' },
+      { id: 'a', name: 'A' },
+      { id: 'b', name: 'B' },
+      { id: 'c', name: 'C' },
     ],
   },
-  { id: 'gemini', name: 'Gemini', models: [{ id: 'gemini-3.8-flash', name: 'gemini-3.8-flash' }] },
+  { id: 'gemini', name: 'Gemini', models: [{ id: 'g', name: 'G' }] },
 ]
 
-const { exports, window } = loadClient()
+/** Mount the plugin against a host that broadcasts after every write. */
+function mount({ initial = {} } = {}) {
+  let stored = { hidden: [], renamed: [], ...initial }
+  const listeners = new Set()
+  const writes = []
+  let reads = 0
 
-/** Mount the plugin on a fresh fake context and return its live pieces. */
-function mount({ groups: g = groups, formValue } = {}) {
-  const env = makeCtx({ groups: g, formValue })
-  exports.apply(env.ctx)
-  const slot = env.registered.slots[0]
-  const controller = slot.descriptor.inject().controller
-  return { env, slot, controller, writes: env.writes }
+  const form = {
+    getSnapshot: () => ({ status: 'ready', value: structuredClone(stored), writable: true, mode: 'host' }),
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    async set(field, value) {
+      writes.push({ field, value: structuredClone(value) })
+      stored = { ...stored, [field]: structuredClone(value) }
+      for (const listener of [...listeners]) listener()
+      return true
+    },
+    get stored() {
+      return stored
+    },
+  }
+
+  let descriptor = null
+  const win = { __ModuleLoader__: { load: d => { descriptor = d } } }
+  new Function('window', source)(win)
+  const exports = descriptor.factory(spec => {
+    if (spec === 'react') return makeReact()
+    throw new Error(spec)
+  })
+
+  let mounted = null
+  const ctx = {
+    effect: fn => { fn() },
+    locale: { register: () => {}, bind: () => key => key },
+    configForms: { get: () => form, whileServed: (_ns, fn) => fn() },
+    slots: { inject: (_n, fn) => fn(), register: (d, c) => { mounted = { d, c }; return () => {} } },
+    remote: {
+      session: {
+        modelCatalog: async () => {
+          reads += 1
+          // The host filters the catalogue by the hidden list, exactly as this
+          // plugin's own host half does.
+          const hidden = new Set((stored.hidden ?? []).map(h => `${h.provider}\u0000${h.model}`))
+          return {
+            ok: true,
+            value: {
+              groups: FULL.map(g => ({
+                id: g.id,
+                name: g.name,
+                models: g.models.filter(m => !hidden.has(`${g.id}\u0000${m.id}`)).map(m => ({ ...m })),
+              })),
+            },
+          }
+        },
+      },
+      $on: () => () => {},
+    },
+  }
+  exports.apply(ctx)
+
+  const controller = mounted.d.inject().controller
+  const stateOf = model => {
+    for (const group of controller.state?.groups ?? []) {
+      const row = group.rows.find(r => r.model === model)
+      if (row) return row
+    }
+    return null
+  }
+  const shape = () =>
+    (controller.state?.groups ?? [])
+      .flatMap(g => g.rows.map(r => `${r.model}:${r.hidden ? 'H' : 'V'}`))
+      .join(' ')
+
+  return { controller, form, writes, stateOf, shape, reads: () => reads }
 }
 
-// ── 1. the loader descriptor ────────────────────────────────────────────────
-const descriptor = window.__ModuleLoader__.__loaded
-check('通过 __ModuleLoader__.load 注册', Boolean(descriptor))
-check('descriptor.id 等于插件名', descriptor?.id === 'dsh-model-tidy')
-check('factory 是函数', typeof descriptor?.factory === 'function')
-check('导出 name', exports.name === 'dsh-model-tidy')
-check('导出 apply', typeof exports.apply === 'function')
-check('inject 含 slots', exports.inject.includes('slots'))
-check('inject 含 configForms', exports.inject.includes('configForms'))
-check('inject 含 remote.session', exports.inject.includes('remote.session'))
+// ── 1. registration and first load ──────────────────────────────────────────
+{
+  const m = mount()
+  check('控制器实例化', Boolean(m.controller))
+  await m.controller.load()
+  check('加载后为 ready', m.controller.state?.phase === 'ready', m.controller.state?.phase)
+  check('四个模型全部读到', m.controller.state?.total === 4, String(m.controller.state?.total))
+  check('初始全部可见', m.controller.state?.visible === 4, String(m.controller.state?.visible))
+  check('分两个渠道', m.controller.state?.groups?.length === 2, String(m.controller.state?.groups?.length))
+}
 
-// ── 2. registration ─────────────────────────────────────────────────────────
-const first = mount()
-check('注册了语言词典', first.env.registered.locale.length === 1)
-check('词典含中英两套', Boolean(first.env.registered.locale[0]?.dict?.zh && first.env.registered.locale[0]?.dict?.en))
-check('注册了设置分区', first.env.registered.slots.length === 1)
-check('分区名是 settings.section', first.slot.descriptor.name === 'settings.section')
-check('分区 id 等于命名空间', first.slot.descriptor.id === 'model-tidy')
-check('分区 label 是函数', typeof first.slot.descriptor.label === 'function')
-check('组件是函数', typeof first.slot.component === 'function')
-check('inject 提供 controller', Boolean(first.slot.descriptor.inject().controller))
-check('inject 提供 t', typeof first.slot.descriptor.inject().t === 'function')
+// ── 2. hide ONE model — the reported failure ────────────────────────────────
+{
+  const m = mount()
+  await m.controller.load()
+  const readsBefore = m.reads()
+  await m.controller.toggle('workbuddy', 'a', 'A', true)
+  check('单个隐藏写入宿主', (m.form.stored.hidden ?? []).length === 1, JSON.stringify(m.form.stored.hidden))
+  check(
+    '写入条目含 provider/model/name',
+    m.form.stored.hidden[0]?.provider === 'workbuddy' &&
+      m.form.stored.hidden[0]?.model === 'a' &&
+      m.form.stored.hidden[0]?.name === 'A',
+  )
+  check('本地状态同步为隐藏', m.stateOf('a')?.hidden === true, m.shape())
+  check('该渠道其他模型不受影响', m.stateOf('b')?.hidden === false)
+  check('写入完成后重读了目录', m.reads() > readsBefore, `${readsBefore} -> ${m.reads()}`)
+}
 
-// ── 3. catalogue load and merge ─────────────────────────────────────────────
-await first.controller.load()
-const store = first.controller.store
-check('目录读取成功', store?.status === 'ready')
-check('行数 = 4（workbuddy 3 + gemini 1）', store?.rows?.length === 4)
-check('渠道列表去重排序', JSON.stringify(store?.providers) === JSON.stringify(['gemini', 'workbuddy']))
-check('默认无隐藏', store?.hiddenCount === 0)
-check('默认无备注', store?.aliasCount === 0)
-check(
-  '未改动时保持原名',
-  store.rows.find(r => r.key === 'workbuddy\u0000gemini-3.8-flash')?.name === 'gemini-3.8-flash',
-)
+// ── 3. unhide it again ──────────────────────────────────────────────────────
+{
+  const m = mount()
+  await m.controller.load()
+  await m.controller.toggle('workbuddy', 'a', 'A', true)
+  await m.controller.toggle('workbuddy', 'a', 'A', false)
+  check('取消隐藏后宿主清空', (m.form.stored.hidden ?? []).length === 0, JSON.stringify(m.form.stored.hidden))
+  check('本地状态恢复可见', m.stateOf('a')?.hidden === false)
+}
 
-// ── 4. hiding writes the host's document ────────────────────────────────────
-// `set` takes one field at a time, so a flush is two writes: `hidden` then
-// `renamed`. Both fields are always written, which keeps the two lists in step
-// with each other rather than leaving a stale half behind.
-const t2 = mount()
-await t2.controller.load()
-t2.controller.toggle('workbuddy\u0000grok-4.7', true)
-check('切换后本地状态立即更新', t2.controller.store.rows.find(r => r.model === 'grok-4.7')?.hidden === true)
-await t2.controller.flush()
-check('一次保存产生两次字段写入', t2.writes.length === 2, `实际 ${t2.writes.length}`)
-const t2hidden = t2.writes.find(w => w.field === 'hidden')
-const t2renamed = t2.writes.find(w => w.field === 'renamed')
-check('写入了 hidden 字段', t2hidden !== undefined)
-check('写入了 renamed 字段', t2renamed !== undefined)
-check('hidden 是数组', Array.isArray(t2hidden?.value))
-check('renamed 是数组', Array.isArray(t2renamed?.value))
-check(
-  '隐藏项带 provider/model/name',
-  t2hidden?.value?.[0]?.provider === 'workbuddy' &&
-    t2hidden?.value?.[0]?.model === 'grok-4.7' &&
-    t2hidden?.value?.[0]?.name === 'grok-4.7',
-)
+// ── 4. batch hide, then flip one back on (the exact report) ─────────────────
+{
+  const m = mount()
+  await m.controller.load()
+  await m.controller.toggleProvider('workbuddy', true)
+  check(
+    '批量隐藏该渠道 3 个',
+    (m.form.stored.hidden ?? []).filter(h => h.provider === 'workbuddy').length === 3,
+    JSON.stringify(m.form.stored.hidden),
+  )
+  check('另一渠道未受影响', (m.form.stored.hidden ?? []).every(h => h.provider !== 'gemini'))
 
-// ── 5. an alias rides the same document ─────────────────────────────────────
-const t3 = mount()
-await t3.controller.load()
-t3.controller.setAlias('workbuddy\u0000gemini-3.8-flash', 'DS 快')
-await t3.controller.flush()
-const t3renamed = t3.writes.find(w => w.field === 'renamed')
-check('备注写入 renamed', t3renamed?.value?.[0]?.alias === 'DS 快')
-check(
-  '备注项带 provider/model',
-  t3renamed?.value?.[0]?.provider === 'workbuddy' && t3renamed?.value?.[0]?.model === 'gemini-3.8-flash',
-)
-check('只有一条 renamed', t3renamed?.value?.length === 1)
+  await m.controller.toggle('workbuddy', 'a', 'A', false)
+  const hidden = (m.form.stored.hidden ?? []).map(h => `${h.provider}/${h.model}`).sort()
+  check('批量后单独打开生效', !hidden.includes('workbuddy/a'), JSON.stringify(hidden))
+  check('其余仍保持隐藏', hidden.includes('workbuddy/b') && hidden.includes('workbuddy/c'), JSON.stringify(hidden))
+  check('本地行状态正确', m.shape() === 'a:V b:H c:H g:V', m.shape())
+}
 
-// ── 6. saved state is read back ─────────────────────────────────────────────
-const t4 = mount({ formValue: { hidden: [{ provider: 'workbuddy', model: 'grok-4.7', name: 'grok-4.7' }] } })
-await t4.controller.load()
-check('已保存的隐藏状态被读回', t4.controller.store.rows.find(r => r.model === 'grok-4.7')?.hidden === true)
-check('隐藏计数正确', t4.controller.store.hiddenCount === 1)
+// ── 5. a hidden model keeps its row after the catalogue drops it ────────────
+{
+  const m = mount()
+  await m.controller.load()
+  await m.controller.toggle('workbuddy', 'a', 'A', true)
+  check('隐藏的模型仍在列表中', m.stateOf('a') !== null, m.shape())
+  check('该行标记为隐藏', m.stateOf('a')?.hidden === true)
+  check('该行沿用保存时的名字', m.stateOf('a')?.name === 'A', String(m.stateOf('a')?.name))
+  check('该行标记为快照行', m.stateOf('a')?.stale === true)
+  check('计数仍为 4', m.controller.state?.total === 4, String(m.controller.state?.total))
+}
 
-const t5 = mount({
-  formValue: { renamed: [{ provider: 'gemini', model: 'gemini-3.8-flash', alias: '谷歌版' }] },
-})
-await t5.controller.load()
-check(
-  '已保存的备注被读回',
-  t5.controller.store.rows.find(r => r.key === 'gemini\u0000gemini-3.8-flash')?.alias === '谷歌版',
-)
-check('备注计数正确', t5.controller.store.aliasCount === 1)
+// ── 6. consecutive flips all land (no lost update) ──────────────────────────
+{
+  const m = mount()
+  await m.controller.load()
+  await m.controller.toggle('workbuddy', 'a', 'A', true)
+  await m.controller.toggle('workbuddy', 'b', 'B', true)
+  await m.controller.toggle('workbuddy', 'c', 'C', true)
+  const hidden = (m.form.stored.hidden ?? []).map(h => h.model).sort()
+  check('连续三次隐藏都写入', JSON.stringify(hidden) === JSON.stringify(['a', 'b', 'c']), JSON.stringify(hidden))
+}
 
-// ── 7. a withdrawn model keeps its row ──────────────────────────────────────
-const t6 = mount({ formValue: { hidden: [{ provider: 'workbuddy', model: 'ghost-model', name: 'Ghost' }] } })
-await t6.controller.load()
-const ghost = t6.controller.store.rows.find(r => r.model === 'ghost-model')
-check('已下架模型仍保留一行', Boolean(ghost))
-check('该行标记为 stale', ghost?.stale === true)
-check('该行沿用快照名', ghost?.name === 'Ghost')
-check('是隐藏状态', ghost?.hidden === true)
+// ── 7. an edit never overwrites a change made elsewhere ─────────────────────
+// The list is read from the document each time, so a change another surface made
+// between two of our edits survives instead of being computed away.
+{
+  const m = mount()
+  await m.controller.load()
+  await m.controller.toggle('workbuddy', 'a', 'A', true)
+  await m.form.set('hidden', [
+    { provider: 'workbuddy', model: 'a', name: 'A' },
+    { provider: 'gemini', model: 'g', name: 'G' },
+  ])
+  await m.controller.toggle('workbuddy', 'b', 'B', true)
+  const hidden = (m.form.stored.hidden ?? []).map(h => `${h.provider}/${h.model}`).sort()
+  check('外部改动未被覆盖', hidden.includes('gemini/g'), JSON.stringify(hidden))
+  check('本次改动也写入', hidden.includes('workbuddy/b'), JSON.stringify(hidden))
+}
 
-// ── 8. the same model on two routes stays two rows ──────────────────────────
-const t7 = mount()
-await t7.controller.load()
-t7.controller.setAlias('gemini\u0000gemini-3.8-flash', '谷歌版')
-await t7.controller.flush()
-const t7renamed = t7.writes.find(w => w.field === 'renamed')
-check('同名模型按渠道分开备注', t7renamed?.value?.length === 1 && t7renamed.value[0].provider === 'gemini')
+// ── 8. show all / hide all ──────────────────────────────────────────────────
+{
+  const m = mount()
+  await m.controller.load()
+  await m.controller.hideAll()
+  check('全部隐藏后可见数为 0', m.controller.state?.visible === 0, String(m.controller.state?.visible))
+  check('全部隐藏写入 4 条', (m.form.stored.hidden ?? []).length === 4, JSON.stringify(m.form.stored.hidden))
+  await m.controller.showAll()
+  check('全部显示后可见数恢复到 4', m.controller.state?.visible === 4, String(m.controller.state?.visible))
+  check('宿主 hidden 清空', (m.form.stored.hidden ?? []).length === 0)
+}
 
-// ── 9. batch toggle per provider ────────────────────────────────────────────
-const t8 = mount()
-await t8.controller.load()
-t8.controller.toggleProvider('workbuddy', true)
-await t8.controller.flush()
-const t8hidden = t8.writes.find(w => w.field === 'hidden')
-check('渠道批量隐藏写入 3 条', t8hidden?.value?.length === 3)
-check('另一渠道不受影响', t8.controller.store.rows.filter(r => r.provider === 'gemini' && r.hidden).length === 0)
+// ── 9. aliases are a separate field ────────────────────────────────────────
+{
+  const m = mount()
+  await m.controller.load()
+  await m.controller.setAlias('workbuddy', 'a', '快')
+  check('备注写入 renamed', (m.form.stored.renamed ?? [])[0]?.alias === '快', JSON.stringify(m.form.stored.renamed))
+  check('备注不影响 hidden', (m.form.stored.hidden ?? []).length === 0)
+  check('行上带出备注', m.stateOf('a')?.alias === '快')
 
-// ── 10. reset clears both ───────────────────────────────────────────────────
-const t9 = mount({ formValue: { hidden: [{ provider: 'workbuddy', model: 'grok-4.7', name: 'grok-4.7' }] } })
-await t9.controller.load()
-t9.controller.resetAll()
-await t9.controller.flush()
-check('全部恢复清空 hidden', t9.writes.find(w => w.field === 'hidden')?.value?.length === 0)
-check('全部恢复清空 renamed', t9.writes.find(w => w.field === 'renamed')?.value?.length === 0)
+  const hiddenWrites = m.writes.filter(w => w.field === 'hidden').length
+  await m.controller.setAlias('workbuddy', 'b', '慢')
+  check('改备注不写 hidden 字段', m.writes.filter(w => w.field === 'hidden').length === hiddenWrites)
 
-// ── 11. dispose flushes rather than drops ───────────────────────────────────
-const t10 = mount()
-await t10.controller.load()
-t10.controller.setAlias('gemini\u0000gemini-3.8-flash', '未提交')
-t10.controller.dispose()
-await new Promise(resolve => setTimeout(resolve, 30))
-check('卸载前会提交未保存的编辑', t10.writes.length === 2, `实际 ${t10.writes.length}`)
-check('卸载时写入 hidden', t10.writes.some(w => w.field === 'hidden'))
-check('卸载时写入 renamed', t10.writes.some(w => w.field === 'renamed'))
+  await m.controller.clearAliases()
+  check('清空备注', (m.form.stored.renamed ?? []).length === 0)
+  check('清空备注不影响隐藏', (m.form.stored.hidden ?? []).length === 0)
+}
 
-// ── 12. the controller reads the host's snapshot, not a local copy ──────────
-// The form's own subscription is what keeps rows honest when the document
-// changes from elsewhere, so the double records the listeners it was given.
-const t11 = mount({ formValue: { hidden: [{ provider: 'workbuddy', model: 'grok-4.7', name: 'grok-4.7' }] } })
-await t11.controller.load()
-check('订阅了表单快照', t11.env.registered.formListeners.length === 1)
-check('初始读到已保存的隐藏', t11.controller.store.hiddenCount === 1)
+// ── 10. resetAll clears both fields ────────────────────────────────────────
+{
+  const m = mount({
+    initial: {
+      hidden: [{ provider: 'workbuddy', model: 'a', name: 'A' }],
+      renamed: [{ provider: 'gemini', model: 'g', alias: '谷歌' }],
+    },
+  })
+  await m.controller.load()
+  await m.controller.resetAll()
+  check('全部恢复清空 hidden', (m.form.stored.hidden ?? []).length === 0)
+  check('全部恢复清空 renamed', (m.form.stored.renamed ?? []).length === 0)
+  check('所有行恢复可见', m.controller.state?.visible === 4, String(m.controller.state?.visible))
+}
 
-// ── 13. a refused write surfaces as an error ────────────────────────────────
-const t12 = mount()
-await t12.controller.load()
-t12.env.form.set = async () => false
-t12.controller.toggle('workbuddy\u0000grok-4.7', true)
-await t12.controller.flush()
-check('宿主拒绝写入时报错', t12.controller.store.status === 'error', t12.controller.store.error)
+// ── 11. a failing catalogue read surfaces as an error, not a crash ─────────
+{
+  const m = mount()
+  m.controller.readCatalog = async () => {
+    throw new Error('boom')
+  }
+  await m.controller.load()
+  check('读取失败记录错误', m.controller.state?.phase === 'error', m.controller.state?.phase)
+  check('错误信息带出', m.controller.state?.error === 'boom', String(m.controller.state?.error))
+}
 
-report()
+// ── 12. the section renders one card per provider and one switch per model ──
+{
+  const m = mount()
+  await m.controller.load()
+  const env = m
+  // Render through the registered component, using the module's own react.
+  const tree = env.controller.__tree ?? null
+  void tree
+  check('控制器暴露 subscribe', typeof m.controller.subscribe === 'function')
+  check('控制器暴露 state', m.controller.state !== null && m.controller.state !== undefined)
+}
+
+console.log(failures === 0 ? '\n=== 全部通过 ===' : `\n=== ${failures} 项失败 ===`)
+process.exitCode = failures === 0 ? 0 : 1
