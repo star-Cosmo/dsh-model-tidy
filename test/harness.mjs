@@ -106,17 +106,30 @@ export function loadClient() {
 
 /** A `ctx` double that records registrations and lets effects be disposed. */
 export function makeCtx({ groups, formValue = {} } = {}) {
-  const registered = { locale: [], slots: [], listeners: [], effects: [] }
+  const registered = { locale: [], slots: [], listeners: [], effects: [], formListeners: [] }
   const writes = []
   let current = { hidden: [], renamed: [], ...formValue }
 
+  // Mirrors `ConfigFormController`: reads go through `getSnapshot()`, whose
+  // `value` is the namespace section; `set` takes ONE field at a time and
+  // answers whether the host accepted it. Getting this shape wrong is exactly
+  // the bug this double exists to catch, so it must not be simplified.
   const form = {
-    get value() {
-      return current
+    getSnapshot() {
+      return { status: 'ready', value: current, writable: true, mode: 'host' }
     },
-    async set(next) {
-      writes.push(next)
-      current = { hidden: [], renamed: [], ...next }
+    subscribe(listener) {
+      registered.formListeners.push(listener)
+      return () => {
+        const at = registered.formListeners.indexOf(listener)
+        if (at !== -1) registered.formListeners.splice(at, 1)
+      }
+    },
+    async set(field, value) {
+      writes.push({ field, value })
+      current = { ...current, [field]: value }
+      for (const listener of [...registered.formListeners]) listener()
+      return true
     },
   }
 

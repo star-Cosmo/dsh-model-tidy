@@ -69,19 +69,26 @@ check(
 )
 
 // ── 4. hiding writes the host's document ────────────────────────────────────
+// `set` takes one field at a time, so a flush is two writes: `hidden` then
+// `renamed`. Both fields are always written, which keeps the two lists in step
+// with each other rather than leaving a stale half behind.
 const t2 = mount()
 await t2.controller.load()
 t2.controller.toggle('workbuddy\u0000grok-4.7', true)
 check('切换后本地状态立即更新', t2.controller.store.rows.find(r => r.model === 'grok-4.7')?.hidden === true)
 await t2.controller.flush()
-check('产生一次写入', t2.writes.length === 1)
-check('写入含 hidden 数组', Array.isArray(t2.writes[0]?.hidden))
-check('写入含 renamed 数组', Array.isArray(t2.writes[0]?.renamed))
+check('一次保存产生两次字段写入', t2.writes.length === 2, `实际 ${t2.writes.length}`)
+const t2hidden = t2.writes.find(w => w.field === 'hidden')
+const t2renamed = t2.writes.find(w => w.field === 'renamed')
+check('写入了 hidden 字段', t2hidden !== undefined)
+check('写入了 renamed 字段', t2renamed !== undefined)
+check('hidden 是数组', Array.isArray(t2hidden?.value))
+check('renamed 是数组', Array.isArray(t2renamed?.value))
 check(
   '隐藏项带 provider/model/name',
-  t2.writes[0].hidden[0]?.provider === 'workbuddy' &&
-    t2.writes[0].hidden[0]?.model === 'grok-4.7' &&
-    t2.writes[0].hidden[0]?.name === 'grok-4.7',
+  t2hidden?.value?.[0]?.provider === 'workbuddy' &&
+    t2hidden?.value?.[0]?.model === 'grok-4.7' &&
+    t2hidden?.value?.[0]?.name === 'grok-4.7',
 )
 
 // ── 5. an alias rides the same document ─────────────────────────────────────
@@ -89,12 +96,13 @@ const t3 = mount()
 await t3.controller.load()
 t3.controller.setAlias('workbuddy\u0000gemini-3.8-flash', 'DS 快')
 await t3.controller.flush()
-check('备注写入 renamed', t3.writes[0]?.renamed?.[0]?.alias === 'DS 快')
+const t3renamed = t3.writes.find(w => w.field === 'renamed')
+check('备注写入 renamed', t3renamed?.value?.[0]?.alias === 'DS 快')
 check(
   '备注项带 provider/model',
-  t3.writes[0].renamed[0].provider === 'workbuddy' && t3.writes[0].renamed[0].model === 'gemini-3.8-flash',
+  t3renamed?.value?.[0]?.provider === 'workbuddy' && t3renamed?.value?.[0]?.model === 'gemini-3.8-flash',
 )
-check('只有一条 renamed', t3.writes[0].renamed.length === 1)
+check('只有一条 renamed', t3renamed?.value?.length === 1)
 
 // ── 6. saved state is read back ─────────────────────────────────────────────
 const t4 = mount({ formValue: { hidden: [{ provider: 'workbuddy', model: 'grok-4.7', name: 'grok-4.7' }] } })
@@ -126,14 +134,16 @@ const t7 = mount()
 await t7.controller.load()
 t7.controller.setAlias('gemini\u0000gemini-3.8-flash', '谷歌版')
 await t7.controller.flush()
-check('同名模型按渠道分开备注', t7.writes[0].renamed.length === 1 && t7.writes[0].renamed[0].provider === 'gemini')
+const t7renamed = t7.writes.find(w => w.field === 'renamed')
+check('同名模型按渠道分开备注', t7renamed?.value?.length === 1 && t7renamed.value[0].provider === 'gemini')
 
 // ── 9. batch toggle per provider ────────────────────────────────────────────
 const t8 = mount()
 await t8.controller.load()
 t8.controller.toggleProvider('workbuddy', true)
 await t8.controller.flush()
-check('渠道批量隐藏写入 3 条', t8.writes[0].hidden.length === 3)
+const t8hidden = t8.writes.find(w => w.field === 'hidden')
+check('渠道批量隐藏写入 3 条', t8hidden?.value?.length === 3)
 check('另一渠道不受影响', t8.controller.store.rows.filter(r => r.provider === 'gemini' && r.hidden).length === 0)
 
 // ── 10. reset clears both ───────────────────────────────────────────────────
@@ -141,8 +151,8 @@ const t9 = mount({ formValue: { hidden: [{ provider: 'workbuddy', model: 'grok-4
 await t9.controller.load()
 t9.controller.resetAll()
 await t9.controller.flush()
-check('全部恢复清空 hidden', t9.writes[0].hidden.length === 0)
-check('全部恢复清空 renamed', t9.writes[0].renamed.length === 0)
+check('全部恢复清空 hidden', t9.writes.find(w => w.field === 'hidden')?.value?.length === 0)
+check('全部恢复清空 renamed', t9.writes.find(w => w.field === 'renamed')?.value?.length === 0)
 
 // ── 11. dispose flushes rather than drops ───────────────────────────────────
 const t10 = mount()
@@ -150,6 +160,24 @@ await t10.controller.load()
 t10.controller.setAlias('gemini\u0000gemini-3.8-flash', '未提交')
 t10.controller.dispose()
 await new Promise(resolve => setTimeout(resolve, 30))
-check('卸载前会提交未保存的编辑', t10.writes.length === 1)
+check('卸载前会提交未保存的编辑', t10.writes.length === 2, `实际 ${t10.writes.length}`)
+check('卸载时写入 hidden', t10.writes.some(w => w.field === 'hidden'))
+check('卸载时写入 renamed', t10.writes.some(w => w.field === 'renamed'))
+
+// ── 12. the controller reads the host's snapshot, not a local copy ──────────
+// The form's own subscription is what keeps rows honest when the document
+// changes from elsewhere, so the double records the listeners it was given.
+const t11 = mount({ formValue: { hidden: [{ provider: 'workbuddy', model: 'grok-4.7', name: 'grok-4.7' }] } })
+await t11.controller.load()
+check('订阅了表单快照', t11.env.registered.formListeners.length === 1)
+check('初始读到已保存的隐藏', t11.controller.store.hiddenCount === 1)
+
+// ── 13. a refused write surfaces as an error ────────────────────────────────
+const t12 = mount()
+await t12.controller.load()
+t12.env.form.set = async () => false
+t12.controller.toggle('workbuddy\u0000grok-4.7', true)
+await t12.controller.flush()
+check('宿主拒绝写入时报错', t12.controller.store.status === 'error', t12.controller.store.error)
 
 report()
