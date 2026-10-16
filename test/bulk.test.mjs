@@ -7,6 +7,7 @@
  * honoured them, "show all" would quietly leave hidden models behind the
  * filter the user forgot was on.
  */
+import { readFileSync } from 'node:fs'
 import { loadClient, makeCtx, check, report } from './harness.mjs'
 
 const groups = [
@@ -107,7 +108,7 @@ function mount({ formValue } = {}) {
   const dict = env.registered.locale[0]?.dict
   check('词典含 zh', Boolean(dict?.zh))
   check('词典含 en', Boolean(dict?.en))
-  for (const key of ['showAll', 'hideAll', 'aliasSet', 'aliasDialogTitle', 'aliasDialogSave', 'aliasDialogCancel', 'aliasDialogClear']) {
+  for (const key of ['showAll', 'hideAll', 'aliasSet', 'aliasDialogTitle', 'aliasDialogSave', 'aliasDialogCancel', 'aliasDialogClear', 'starCta', 'starTitle']) {
     check(`zh 有 ${key}`, typeof dict.zh[key] === 'string' && dict.zh[key] !== '')
     check(`en 有 ${key}`, typeof dict.en[key] === 'string' && dict.en[key] !== '')
   }
@@ -116,11 +117,34 @@ function mount({ formValue } = {}) {
   check('中英键集合一致', JSON.stringify(zhKeys) === JSON.stringify(enKeys), `${zhKeys.length} vs ${enKeys.length}`)
 }
 
-// ── 7. the stylesheet is injected once ──────────────────────────────────────
+// ── 7. the star button points at the repository ─────────────────────────────
+// A "please star this" link has exactly one failure mode that matters: it
+// points somewhere else, or opens in the current tab and throws away the
+// settings page the user was working in. Both are checked against the source
+// rather than a rendered tree, because the anchor is created inside the view.
 {
-  const env = makeCtx({ groups })
-  exports.apply(env.ctx)
-  check('样式表随分区注册（由视图注入）', true)
+  const src = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
+  const repoMatch = /const REPO_URL = '([^']+)'/.exec(src)
+  check('定义了仓库地址常量', Boolean(repoMatch))
+  check(
+    '地址指向本仓库',
+    repoMatch?.[1] === 'https://github.com/star-Cosmo/dsh-model-tidy',
+    repoMatch?.[1] ?? 'none',
+  )
+  check('按钮在新标签打开', src.includes("target: '_blank'"))
+  check('带 noopener/noreferrer', /rel:\s*'noreferrer noopener'/.test(src))
+  check('用真实 a 标签而非点击处理器', src.includes("className: 'dsh-mt-star'") && /h\(\s*'a'/.test(src))
+  check('按钮出现在标题行', src.includes('dsh-mt-head-row'))
+  check('是次要色而非主色', /\.dsh-mt-star\s*\{[^}]*label-secondary/.test(src))
+}
+
+// ── 8. the stylesheet is injected with the section ───────────────────────────
+{
+  const src = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
+  check('样式表随分区注册（由视图注入）', src.includes('ensureStyles()'))
+  check('样式表使用设计令牌', src.includes('var(--dsw-'))
+  const hardcodedGreys = (src.match(/rgba\(127,\s*127,\s*127/g) ?? []).length
+  check('不再硬编码灰色', hardcodedGreys === 0, `${hardcodedGreys} 处`)
 }
 
 report()
