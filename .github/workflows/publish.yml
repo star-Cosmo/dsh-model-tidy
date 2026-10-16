@@ -1,0 +1,65 @@
+# Publish dsh-model-tidy to npm from a tag.
+#
+# Uses npm Trusted Publishing (OIDC): no long-lived token is stored anywhere.
+# npm exchanges the workflow's short-lived OIDC identity for a publish
+# credential, and generates provenance automatically — the package page then
+# shows that this version was built and published by this repository's
+# workflow.
+#
+# Prerequisite, done once on npmjs.com (after the first manual publish):
+#   Package → Settings → Trusted Publisher → GitHub Actions
+#     Organization or user: star-Cosmo
+#     Repository:           dsh-model-tidy
+#     Workflow filename:    publish.yml
+#     Allowed actions:      npm publish
+#
+# Releasing:
+#   npm version patch|minor|major --no-git-tag-version
+#   git commit -am "发布：<版本说明>"
+#   git tag v<version> && git push origin main --tags
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Manual runs stay available for a re-publish after a failed job.
+  workflow_dispatch:
+
+# `id-token: write` is what lets the job mint the OIDC token npm exchanges.
+# This is the one permission trusted publishing cannot work without.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          # Caching is deliberately off in a release build: a stale cache is a
+          # way for a published artifact to differ from the tagged source.
+          package-manager-cache: false
+
+      - name: Run the test suites
+        run: npm test
+
+      # The tag and package.json must agree, or a mistyped tag publishes a
+      # version nobody intended. Checked before the publish, not after.
+      - name: Verify the tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag v$TAG does not match package.json version $PKG" >&2
+            exit 1
+          fi
+          echo "publishing $PKG"
+
+      - name: Publish
+        run: npm publish --access public
