@@ -156,16 +156,22 @@ const byClassPrefix = (nodes, prefix) =>
       },
     }),
   )
-  const dots = byClassPrefix(collect(m.render()), 'dsh-mt-dot')
-  const classes = dots.map(d => d.props.className).sort()
+  // `is-sample` marks legend swatches; a row's own dot never carries it, so the
+  // two kinds are told apart rather than pooled.
+  const allDots = byClassPrefix(collect(m.render()), 'dsh-mt-dot')
+  const rowDots = allDots.filter(d => !String(d.props.className).includes('is-sample'))
+  const legendDots = allDots.filter(d => String(d.props.className).includes('is-sample'))
+  const classes = rowDots.map(d => d.props.className).sort()
+  check('行内的点只有两个', rowDots.length === 2, String(rowDots.length))
   check('可用点带 ok 类', classes.includes('dsh-mt-dot ok'), classes.join(' | '))
   check('失败点带 fail 类', classes.includes('dsh-mt-dot fail'), classes.join(' | '))
-  const okDot = dots.find(d => d.props.className === 'dsh-mt-dot ok')
+  check('图例有四个颜色样本', legendDots.length === 4, String(legendDots.length))
+  const okDot = rowDots.find(d => d.props.className === 'dsh-mt-dot ok')
   // The locale double returns the key it is given, so the latency cannot show up
   // as a number here; what matters is that the tooltip asks for it at all.
   check('可用点的提示带延迟文案', String(okDot?.props.title).includes('probeLatency'), String(okDot?.props.title))
   check('可用点的提示标明可用', String(okDot?.props.title).includes('probeOk'), String(okDot?.props.title))
-  const failDot = dots.find(d => d.props.className === 'dsh-mt-dot fail')
+  const failDot = rowDots.find(d => d.props.className === 'dsh-mt-dot fail')
   check('失败点的提示含原因', String(failDot?.props.title).includes('nope'), String(failDot?.props.title))
 }
 {
