@@ -36,7 +36,7 @@
     }
   },
   "scripts": {
-    "test": "node test/host.test.mjs && node test/rate.test.mjs && node test/client.test.mjs && node test/alias-suffix.test.mjs && node test/order.test.mjs && node test/render.test.mjs && node test/coexistence.test.mjs",
+    "test": "node test/host.test.mjs && node test/rate.test.mjs && node test/client.test.mjs && node test/alias-suffix.test.mjs && node test/order.test.mjs && node test/sort.test.mjs && node test/sort-render.test.mjs && node test/render.test.mjs && node test/coexistence.test.mjs",
     "check:packaging": "node .market/check-client-inject.mjs"
   },
   "peerDependencies": {
