@@ -114,26 +114,38 @@ const collect = tree => {
   const ups = arrows.filter(a => a.children?.[0] === '▲')
   const downs = arrows.filter(a => a.children?.[0] === '▼')
 
-  check('每行两个箭头', arrows.length === 6, String(arrows.length))
-  check('上移按钮数量正确', ups.length === 3, String(ups.length))
-  check('下移按钮数量正确', downs.length === 3, String(downs.length))
+  // Three model rows plus the one channel head, two arrows each.
+  check('行的箭头共 6 个', arrows.filter(a => a.props?.className === 'dsh-mt-arrow').length === 6 + 2, String(arrows.length))
+  check('上移按钮数量正确', ups.length === 4, String(ups.length))
+  check('下移按钮数量正确', downs.length === 4, String(downs.length))
   check('箭头是 button 元素', arrows.every(a => a.tag === 'button'))
 }
 
 // ── 2. boundaries are disabled ──────────────────────────────────────────────
+// Two kinds of arrow share the class: one pair on the channel head and one pair
+// per model row. The boundaries below are asserted per pair, by their aria-label
+// prefix, so a change to either kind is visible here.
 {
   const m = setup()
   await m.controller.load()
-  const nodes = collect(m.render())
-  const arrows = nodes.filter(n => n.props?.className === 'dsh-mt-arrow')
-  const ups = arrows.filter(a => a.children?.[0] === '▲')
-  const downs = arrows.filter(a => a.children?.[0] === '▼')
+  const arrows = collect(m.render()).filter(n => n.props?.className === 'dsh-mt-arrow')
+  const rowUps = arrows.filter(a => a.children?.[0] === '▲' && String(a.props?.['aria-label']).startsWith('moveUp'))
+  const rowDowns = arrows.filter(a => a.children?.[0] === '▼' && String(a.props?.['aria-label']).startsWith('moveDown'))
+  const channelUps = arrows.filter(a => a.children?.[0] === '▲' && String(a.props?.['aria-label']).startsWith('moveProviderUp'))
+  const channelDowns = arrows.filter(a => a.children?.[0] === '▼' && String(a.props?.['aria-label']).startsWith('moveProviderDown'))
 
-  check('首行上移被禁用', ups[0]?.props?.disabled === true)
-  check('末行下移被禁用', downs[downs.length - 1]?.props?.disabled === true)
-  check('中间行上移可用', ups[1]?.props?.disabled === false)
-  check('首行下移可用', downs[0]?.props?.disabled === false)
-  check('末行上移可用', ups[ups.length - 1]?.props?.disabled === false)
+  check('行的上移有 3 个', rowUps.length === 3, String(rowUps.length))
+  check('行的下移有 3 个', rowDowns.length === 3, String(rowDowns.length))
+  check('渠道的上下各 1 个', channelUps.length === 1 && channelDowns.length === 1, `${channelUps.length}/${channelDowns.length}`)
+
+  check('首行上移被禁用', rowUps[0]?.props?.disabled === true)
+  check('末行下移被禁用', rowDowns[rowDowns.length - 1]?.props?.disabled === true)
+  check('中间行上移可用', rowUps[1]?.props?.disabled === false)
+  check('首行下移可用', rowDowns[0]?.props?.disabled === false)
+  check('末行上移可用', rowUps[rowUps.length - 1]?.props?.disabled === false)
+  // A single channel has no neighbour in either direction.
+  check('唯一渠道的上移被禁用', channelUps[0]?.props?.disabled === true)
+  check('唯一渠道的下移被禁用', channelDowns[0]?.props?.disabled === true)
 }
 
 // ── 3. every arrow carries a label for assistive technology ────────────────
@@ -170,7 +182,11 @@ const collect = tree => {
   const m = setup({ initial: { hidden: [{ provider: 'workbuddy', model: 'b', name: 'B' }] } })
   await m.controller.load()
   const arrows = collect(m.render()).filter(n => n.props?.className === 'dsh-mt-arrow')
-  check('隐藏行也有箭头', arrows.length === 6, String(arrows.length))
+  // Three rows — one of them hidden and rebuilt from the document — plus the
+  // channel head.
+  check('隐藏行也有箭头', arrows.length === 6 + 2, String(arrows.length))
+  const rowUps = arrows.filter(a => a.children?.[0] === '▲' && String(a.props?.['aria-label']).startsWith('moveUp'))
+  check('隐藏行的上移同样可点', rowUps.some(a => a.props?.disabled === false), String(rowUps.length))
 }
 
 console.log(failures === 0 ? '\n=== 排序渲染验证通过 ===' : `\n=== ${failures} 项失败 ===`)

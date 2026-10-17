@@ -204,16 +204,29 @@ const byClassPrefix = (nodes, prefix) =>
   check('点击按钮本身没有发起检测', m.controller.probing === false)
 }
 
-// ── 6. the confirm dialog offers to include hidden models ─────────────────
+// ── 6. hidden models are never part of a batch ────────────────────────────
+// The dialog has no "include hidden" choice on purpose: a hidden model is not
+// offered by the selector, so checking it would spend tokens on an answer
+// nobody acts on. The count in the dialog is the visible count, and the batch the
+// start button would send contains no hidden model.
 {
   const m = setup({ initial: { hidden: [{ provider: 'workbuddy', model: 'b', name: 'B' }] } })
   await m.controller.load()
   const probeButton = collect(m.render()).find(n => n.tag === 'button' && n.children?.[0] === 'probeButton')
   probeButton?.props.onClick()
   const nodes = collect(m.render())
-  const checkbox = nodes.find(n => n.tag === 'input' && n.props?.type === 'checkbox')
-  check('有隐藏模型时出现勾选框', checkbox !== undefined)
-  check('勾选框默认不选', checkbox?.props?.checked === false)
+  check('确认框没有隐藏模型的勾选框', nodes.every(n => !(n.tag === 'input' && n.props?.type === 'checkbox')))
+
+  let sent = null
+  const originalProbe = m.controller.probe.bind(m.controller)
+  m.controller.probe = async targets => {
+    sent = targets
+    return originalProbe(targets, async () => ({ ok: true, async json() { return { results: [] } } }))
+  }
+  const start = collect(m.render()).find(n => n.tag === 'button' && n.children?.[0] === 'probeConfirmStart')
+  start?.props.onClick()
+  check('开始检测只提交可见模型', sent?.length === 1, JSON.stringify(sent))
+  check('提交的正是可见的那个模型', sent?.[0]?.model === 'a', JSON.stringify(sent))
 }
 
 console.log(failures === 0 ? '\n=== 探测渲染验证通过 ===' : `\n=== ${failures} 项失败 ===`)
