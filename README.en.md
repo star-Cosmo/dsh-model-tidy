@@ -24,24 +24,46 @@ Installing the plugin adds a **Model Tidy** section to the DSH settings. Models
 are grouped by the provider they came from, and each one carries a single switch:
 
 ```
-┌─ WorkBuddy ───────────────────────────── 8/12 ─ [hide all] [show all] ─┐
-│  Auto                                            ●───                  │
-│  GLM-5.3 · x0.79                                 ●───                  │
-│  GLM-5.2 · x0.79 · night discount    [alias]     ───●                  │
-│  Grok-4.7 · x1.90                                ───●                  │
-└────────────────────────────────────────────────────────────────────────┘
-┌─ our-free-model ───────────────────────── 6/6 ── [hide all] [show all] ─┐
-│  Kilo Auto Free                                  ●───                  │
-└────────────────────────────────────────────────────────────────────────┘
+┌─ WorkBuddy ───────────── 8/12 ─ [reset order] [hide all] [show all] ─┐
+│ ▲▼  Auto                                            ●───             │
+│ ▲▼  GLM-5.3 · x0.79                                 ●───             │
+│ ▲▼  GLM-5.2 · x0.79 · night discount    [alias]     ───●             │
+│ ▲▼  Grok-4.7 · x1.90                                ───●             │
+└──────────────────────────────────────────────────────────────────────┘
+┌─ our-free-model ───────── 6/6 ── [reset order] [hide all] [show all] ─┐
+│ ▲▼  Kilo Auto Free                                  ●───             │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 - **One switch per model.** Off means it disappears from the model selector.
+- **Order arrows.** Move a model up or down within its provider; the provider
+  head restores the catalogue order in one click.
 - **Alias.** Give a model a name you recognise and the selector offers it under
   that name. The provider's billing suffix stays on the end.
 - **Search.** Filter by model, provider, or alias.
 - **Per-provider batch.** Hide or show everything from one provider in a click.
 - **Global show / hide.** Two buttons for the whole catalogue.
 - **Restore.** One button clears every alias, another brings every model back.
+
+## Custom order
+
+Each row carries a pair of arrows for arranging it within its provider. The
+order is **saved explicitly**, so it survives a restart and follows a settings
+sync to another machine.
+
+- **Order, not visibility.** A model you have arranged stays at its place in the
+  saved order when hidden, and returns to it when shown again.
+- **New models land after the arranged ones.** A model a provider adds later
+  does not appear in the middle of a sequence you took care to arrange.
+- **Ordering works while filtering.** With a search active the arrows swap the
+  two *visible* neighbours, so a click always does something visible; rows the
+  filter hides keep their own relative positions.
+- **One-click undo.** "Reset order" on a provider head drops that provider's
+  custom sequence and returns to catalogue order.
+
+The arrangement lives in the plugin's own settings namespace (the `order` field,
+a list of model ids per provider); no provider configuration is touched.
+
 
 ## The billing rate survives a rename
 
@@ -110,9 +132,10 @@ factory, the format the client module system calls.
 npm test
 ```
 
-Runs seven suites — the catalogue filter, the billing-suffix split, the browser
-half's behaviour, the alias capture, row ordering, the rendered tree, and
-coexistence with another plugin that wraps the same method.
+Runs nine suites — the catalogue filter, the billing-suffix split, the browser
+half's behaviour, the alias capture, row ordering, custom ordering, the order
+arrows in the rendered tree, the rendered tree itself, and coexistence with
+another plugin that wraps the same method.
 
 `npm run check:packaging` verifies the client dependency declaration names
 packages the harness actually ships.
