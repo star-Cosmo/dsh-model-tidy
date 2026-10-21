@@ -46,6 +46,11 @@ jobs:
           # way for a published artifact to differ from the tagged source.
           package-manager-cache: false
 
+      - name: Install dependencies
+        # `npm ci` from the committed lockfile so the tag's tests run against
+        # exactly the resolution it was published with.
+        run: npm ci
+
       - name: Run the test suites
         run: npm test
 
