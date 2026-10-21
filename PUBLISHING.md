@@ -8,12 +8,61 @@
 |---|---|
 | GitHub 仓库 | https://github.com/star-Cosmo/dsh-model-tidy（公开，已加 `dsh-plugin` topic） |
 | 本地工作区 | `E:\Workstation\Github-starCosmo\dsh-model-tidy` |
-| 已提交 | 3 次提交，全中文信息 |
-| 测试 | `npm test` 三套全过（host / client / coexistence） |
-| 真机安装 | 已装进 `desktop` profile 并验证加载通过 |
-| npm | **未发布**（需先登录） |
+| 测试 | `npm test` 十三套全过 |
+| npm | 已发布，最新 `1.1.0`（2026-10-21，经 GitHub Actions + OIDC） |
+| 市场收录 | 已合并（PR #7702）；描述更新 PR #8410 |
+| 截图 | 仓库根有 `screenshots.json`，声明 `docs/screenshots/main.png` |
 
-## 一、发布 npm（占名）
+## 零、日常发版（OIDC 自动发布，首选）
+
+已配置 npm Trusted Publisher，不需要本地登录 npm，也不需要在任何地方存 token。
+
+```powershell
+cd E:\Workstation\Github-starCosmo\dsh-model-tidy
+
+# 1. 改代码 / README / 市场描述，跑测试
+npm test
+
+# 2. 升版本（不自动打 tag）
+npm version minor --no-git-tag-version    # 或 patch / major
+
+# 3. 提交并推送
+git commit -am "发布：<版本说明>"
+git push origin main
+
+# 4. 打 tag 并推送 —— 这一步触发 .github/workflows/publish.yml
+git tag v<version>
+git push origin v<version>
+```
+
+workflow 会在 CI 里跑 `npm ci` + `npm test`，校验 tag 与 `package.json` 版本一致，然后用 OIDC 身份 `npm publish`，并自动生成 provenance（npm 包页面会显示「由本仓库的 workflow 构建并发布」）。
+
+**如果 workflow 失败**：修好后不要打新 tag，直接重跑失败的 job：
+
+```powershell
+& "E:\MyGit\GitHubCLI\bin\gh.exe" run rerun <run-id> --repo star-Cosmo/dsh-model-tidy --failed
+```
+
+### npm 侧必须已建立的配置（一次性）
+
+包页面 → Settings → **Trusted Publisher** → GitHub Actions：
+
+| 字段 | 值 |
+|---|---|
+| Organization or user | `star-Cosmo` |
+| Repository | `dsh-model-tidy` |
+| Workflow filename | `publish.yml` |
+| Allowed actions | 必须勾 **Allow `npm publish`** |
+
+⚠️ **只勾默认的「npm stage publish is always allowed」不够**：workflow 执行的是真正的 `npm publish`，会被 npm 以 `403 OIDC permission denied for this action` 拒绝。这一项需要显式勾上 `Allow npm publish`。
+
+### 踩过的坑（勿重犯）
+
+1. **workflow 里必须先 `npm ci` 再跑测试**——CI 是全新目录，不装依赖会 `ERR_MODULE_NOT_FOUND`。
+2. **`package-lock.json` 不能在 DSH 工作区里生成**：如果项目里 `node_modules/@deepseek-ai/schemastery` 是指向 DSH profile 的结点（junction），npm 会把那个绝对路径写进 lockfile，CI 的 Linux 环境永远装不上。生成 lockfile 前先删掉这类结点，并确认 lockfile 里只有 `node_modules/...` 相对路径。
+3. **tag 必须打在已包含修复的提交上**：tag 指向旧提交时，重跑只会重复旧的失败。
+
+## 一、发布 npm（手动兜底，仅在 OIDC 不可用时使用）
 
 npm 当前 registry 是淘宝镜像 `registry.npmmirror.com`，**发布必须显式指向官方源**，不要改全局配置。
 
