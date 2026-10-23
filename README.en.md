@@ -3,9 +3,8 @@
 [中文](README.md) · **English** · [日本語](README.ja.md) · [Русский](README.ru.md)
 
 A DeepSeek Harness plugin that keeps the model selector tidy — choose which
-models appear, give them names you recognise, arrange them in an order you
-define, and keep the billing rate the provider published. It also carries an
-optional availability check, so you can confirm a model still works right now.
+models appear, give models and channels names you recognise, arrange them in an
+order you define, and keep the billing rate the provider published.
 
 ![The Model Tidy section](docs/screenshots/main.png)
 
@@ -27,27 +26,28 @@ are grouped by the provider they came from — one card per provider — and eac
 one carries a single switch:
 
 ```
-┌─ WorkBuddy ───── 8/12 ─ [reset order] [hide all] [show all] ─┐
-│ ▲▼  Auto                                         ●───       │
-│ ▲▼  GLM-5.3 · x0.79                              ●───       │
-│ ▲▼  GLM-5.2 · x0.79 · night discount   ● [alias] ───●       │
-│ ▲▼  Grok-4.7 · x1.90                               ───●       │
-└─────────────────────────────────────────────────────────────┘
-┌─ our-free-model ─ 6/6 ── [reset order] [hide all] [show all] ─┐
-│ ▲▼  Kilo Auto Free                                  ●───       │
-└─────────────────────────────────────────────────────────────┘
+┌─ WorkBuddy ──── 8/12 ─ [name channel] [reset order] [hide] [show] ─┐
+│ ▲▼  Auto                                       ●───              │
+│ ▲▼  GLM-5.3 · x0.79                            ●───              │
+│ ▲▼  GLM-5.2 · x0.79 · night discount  ● [alias] ───●              │
+│ ▲▼  Grok-4.7 · x1.90                             ───●              │
+└──────────────────────────────────────────────────────────────────┘
+┌─ our-free-model ─ 6/6 ─ [name channel] [reset order] [hide] [show] ─┐
+│ ▲▼  Kilo Auto Free                                ●───              │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 - **One switch per model.** Off means it disappears from the model selector.
 - **Up/down arrows (`▲▼`).** Order both the provider cards and the models inside
   a provider; a head button restores the catalogue order in one click.
-- **Alias.** Give a model a name you recognise and the selector offers it under
-  that name. The provider's billing suffix stays on the end.
+- **Model alias.** Give a model a name you recognise and the selector offers it
+  under that name. The provider's billing suffix stays on the end.
+- **Channel alias.** Name the channel itself; the picker then uses that as its
+  group title, with the channel id kept beside it in small text.
 - **Search.** Filter by model, provider, or alias.
 - **Per-provider batch.** Hide or show everything from one provider in a click.
 - **Global show / hide.** Two buttons for the whole catalogue.
-- **Availability check.** Confirm which shown models actually work right now, one
-  status dot per row.
+- **Back to top.** A corner button that returns a long list to the top.
 - **Restore.** One button clears every alias, another brings every model back.
 
 ## Custom order (models)
@@ -80,27 +80,29 @@ you use most to the top. The channel order is **stored separately**
 - **One-click undo.** "Reset provider order" in the control bar returns to the
   harness's own channel order.
 
-## Availability check
+## Renaming a channel
 
-A model selector only tells you that a model is *listed* — never that it
-currently works. After installing a few providers, a retired model or a dead
-gateway route does not quietly disappear.
+Channels can be renamed too. Press "name channel" on a card, type a name you
+recognise, and the picker's group title changes — call `our-free-model` "the
+free lane", for example.
 
-Clicking **Check availability** opens a confirmation dialog — because it spends a
-small number of tokens — stating that it will send one tiny request (a single
-word is asked for) to each *shown* model. Each row then carries a status dot:
+- **Label only.** Routing keys off the channel id, so a rename touches no
+  request and any session in flight keeps working.
+- **The id stays visible.** The published id remains beside the title in small
+  text, so the channel is still identifiable against your configuration.
+- **Blank restores it.** Clear the alias and the title returns to the name the
+  channel publishes.
+- **Independent of model aliases.** The two tables are stored apart, so renaming
+  a channel never touches a model name and vice versa.
 
-- **green** = available
-- **red** = unavailable (hover for the latency and the failure reason)
-- **amber** = checking
-- **grey** = not checked
+## Back to top
 
-The probe runs on the host side, where model calls exist; the front end hands
-the models to a loopback-only route in batches, and the host probes them with a
-bounded worker pool (width 4, an 8-second timeout per model), returning each
-verdict to its own row. You can stop a run at any time. Hidden models are never
-probed, and the results live only in memory — availability is the truth of *this
-moment*, and is never persisted into a stale verdict for the next session.
+A model list can get long. A round button pinned to the bottom-right corner
+scrolls the visible pane smoothly back to the top, so you no longer drag your way
+up.
+
+It finds the real scroll container — the settings shell's outer scroller, not the
+whole page — so the target is always the one that actually moves.
 
 ## The billing rate survives a rename
 
@@ -130,13 +132,16 @@ models leaves it third.
 
 **Tidying is a display decision, never a configuration change.**
 
-- Your provider configuration is never rewritten. The hidden list, the alias
-  table and the ordering records live in this plugin's own settings namespace.
+- Your provider configuration is never rewritten. The hidden list, the model
+  aliases, the channel aliases and the ordering records live in this plugin's own
+  settings namespace.
 - A model hidden or renamed while a session is using it keeps serving that
   session — routing keys off the model id, and only the label changes.
 - Uninstalling the plugin restores the original list completely.
 - New models a provider starts advertising are visible by default. The plugin
   records what to hide, what to rename and what to order — never what to show.
+- **No availability probing.** Each channel has its own way to diagnose a broken
+  model; a list-tidying plugin should not spend your tokens testing them.
 
 ## Coverage
 
@@ -160,10 +165,6 @@ dsh plugin --profile <your-profile> add dsh-model-tidy
 
 Then reopen the DSH Web GUI. **Model Tidy** appears in the settings navigation.
 
-> The availability check needs the host to run a web service; environments
-> without one still get the full tidying features, just none of the probe
-> button.
-
 ## Development
 
 No build step: both halves ship as the plain files the harness loads. The host
@@ -174,11 +175,11 @@ factory, the format the client module system calls.
 npm test
 ```
 
-Runs thirteen suites — the catalogue filter, the billing-suffix split, the
-browser half's behaviour, the alias capture, row ordering, model custom ordering,
-provider custom ordering, ordering with rendering, the availability probe, probe
-speed, probe rendering, the rendered tree itself, and coexistence with another
-plugin that wraps the same method.
+Runs twelve suites — the catalogue filter, the billing-suffix split, the browser
+half's behaviour, the alias capture, row ordering, model custom ordering, channel
+custom ordering, channel renaming, ordering with rendering, back to top, the
+rendered tree itself, and coexistence with another plugin that wraps the same
+method.
 
 `npm run check:packaging` verifies the client dependency declaration names
 packages the harness actually ships.
