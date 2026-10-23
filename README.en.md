@@ -187,7 +187,13 @@ packages the harness actually ships.
 ## Compatibility
 
 Built against DSH `0.2.0-rc.2`. Requires DSH `>= 0.2.0-rc.1`, where the settings
-layer gained the `configForms` service this plugin's section writes through.
+layer gained the `configForms` service this plugin's section writes through. The
+host compatibility claim lives in `package.json` as `dsh.compatibility.dsh`
+(currently `>=0.2.0-rc.1`), and install, startup, full feature use and
+uninstall-restore have been verified on a real DSH `0.2.1` machine.
+
+The Node range is declared as `>=20` (`engines.node`); development and CI run on
+Node 24 with the whole suite passing.
 
 ## Contact
 
