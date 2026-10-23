@@ -127,6 +127,10 @@ npm test
 
 针对 DSH `0.2.0-rc.2` 开发。要求 DSH `>= 0.2.0-rc.1`——该版本起设置层才提供本插件分区写入所用的 `configForms` 服务。
 
+## 联系
+
+有想改进的功能、或遇到使用问题，欢迎到 [Issues](https://github.com/star-Cosmo/dsh-model-tidy/issues) 提；也可以直接发邮件给作者：chenbin2004sz@163.com。
+
 ## 许可证
 
 MIT

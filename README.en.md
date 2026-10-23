@@ -189,6 +189,12 @@ packages the harness actually ships.
 Built against DSH `0.2.0-rc.2`. Requires DSH `>= 0.2.0-rc.1`, where the settings
 layer gained the `configForms` service this plugin's section writes through.
 
+## Contact
+
+Feature ideas and problems are best raised as
+[Issues](https://github.com/star-Cosmo/dsh-model-tidy/issues); you can also
+email the author directly at chenbin2004sz@163.com.
+
 ## License
 
 MIT

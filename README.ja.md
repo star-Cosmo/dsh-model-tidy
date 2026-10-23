@@ -127,6 +127,10 @@ npm test
 
 DSH `0.2.0-rc.2` に対して開発しています。DSH `>= 0.2.0-rc.1` が必要です——このバージョンで設定層に `configForms` サービスが加わり、本プラグインのセクションはそれを通して書き込みます。
 
+## 連絡先
+
+機能の要望や不具合は [Issues](https://github.com/star-Cosmo/dsh-model-tidy/issues) へ。メールでも受け付けます：chenbin2004sz@163.com。
+
 ## ライセンス
 
 MIT
