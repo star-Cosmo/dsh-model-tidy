@@ -127,7 +127,7 @@ npm test
 
 针对 DSH `0.2.0-rc.2` 开发。要求 DSH `>= 0.2.0-rc.1`——该版本起设置层才提供本插件分区写入所用的 `configForms` 服务。宿主兼容声明以 `package.json` 的 `dsh.compatibility.dsh` 为准（当前 `>=0.2.0-rc.1`），并已在 DSH `0.2.1` 实机完成安装、启动、功能与卸载还原验证。
 
-Node 支持范围声明为 `>=20`（`engines.node`）；开发与 CI 均在 Node 24 上运行，全部测试通过。
+Node 支持范围声明为 `^22.19.0 || >=24.0.0`（`engines.node`）；开发与 CI 均在 Node 24 上运行，全部测试通过。
 
 ## 联系
 
