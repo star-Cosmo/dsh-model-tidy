@@ -205,6 +205,7 @@ chenbin2004sz@163.com. Stars appreciated if you find it useful.
 | [dshmarket.com](https://dshmarket.com) | 镜像 awesome 目录 | 跟随上游 | ✅ 同步 |
 | [kejixiaoliang/awesome-dsh-plugins](https://github.com/kejixiaoliang/awesome-dsh-plugins) | 353 插件 | PR 在 plugins/<分类>.md 加一行 | ⏳ PR [#165](https://github.com/kejixiaoliang/awesome-dsh-plugins/pull/165) |
 | [beancookie/awesome-dsh-plugin](https://github.com/beancookie/awesome-dsh-plugin) | 504 插件 | PR 在 README 分类下加一行 | ⏳ PR [#249](https://github.com/beancookie/awesome-dsh-plugin/pull/249) |
+| [0xsline/awesome-deepseek-harness](https://github.com/0xsline/awesome-deepseek-harness) | 1,260 star | PR 到 `Models & Inference` 分类（中英两个 README） | ⏳ PR [#756](https://github.com/0xsline/awesome-deepseek-harness/pull/756) |
 | [bruc3van/awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) | 471 star | PR 到 SHOWCASE.md，要求 Star > 10 | ❌ 当前 2 star，未达门槛 |
 | [dsh.store](https://dsh.store)（DSH STORE） | 严格审核 | GitHub Issue 提交 + 固定 Commit 审核 | ⏳ Issue [#1463](https://github.com/AI-Scarlett/DSH-Store/issues/1463) 已请求复核 |
 | [AdamPlatin123/dsh-plugin-radar](https://github.com/AdamPlatin123/dsh-plugin-radar) | 1.4k star，自动发现 | 自动爬 dsh-plugin topic | ✅ 预期自动覆盖 |
