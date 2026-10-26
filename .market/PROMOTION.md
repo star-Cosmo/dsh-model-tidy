@@ -193,3 +193,30 @@ chenbin2004sz@163.com. Stars appreciated if you find it useful.
 - 市场页：https://awesome-dsh-plugin.com/p/star-Cosmo/dsh-model-tidy/
 - CI：https://github.com/star-Cosmo/dsh-model-tidy/actions
 - 联系邮箱：chenbin2004sz@163.com
+
+---
+
+## 七、目录收录渠道（2026-10-27 实测）
+
+| 渠道 | 规模 | 收录方式 | 状态 |
+|---|---|---|---|
+| [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) | 2 万+ star | PR 加 data/plugins/<owner>__<repo>.yml | ✅ 已收录（PR #7702/#8410/#8825 均已合并） |
+| [dsh-plugin.org](https://dsh-plugin.org/zh/plugins/star-cosmo/dsh-model-tidy) | 17,826 仓库，内置于 DSH 设置页 | 自动索引：公开仓库 + dsh-plugin topic + 描述/安装命令 | ✅ 已收录（无需提交，topic 即索引） |
+| [dshmarket.com](https://dshmarket.com) | 镜像 awesome 目录 | 跟随上游 | ✅ 同步 |
+| [kejixiaoliang/awesome-dsh-plugins](https://github.com/kejixiaoliang/awesome-dsh-plugins) | 353 插件 | PR 在 plugins/<分类>.md 加一行 | ⏳ PR [#165](https://github.com/kejixiaoliang/awesome-dsh-plugins/pull/165) |
+| [beancookie/awesome-dsh-plugin](https://github.com/beancookie/awesome-dsh-plugin) | 504 插件 | PR 在 README 分类下加一行 | ⏳ PR [#249](https://github.com/beancookie/awesome-dsh-plugin/pull/249) |
+| [bruc3van/awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) | 471 star | PR 到 SHOWCASE.md，要求 Star > 10 | ❌ 当前 2 star，未达门槛 |
+| [dsh.store](https://dsh.store)（DSH STORE） | 严格审核 | GitHub Issue 提交 + 固定 Commit 审核 | ⏳ Issue [#1463](https://github.com/AI-Scarlett/DSH-Store/issues/1463) 已请求复核 |
+| [AdamPlatin123/dsh-plugin-radar](https://github.com/AdamPlatin123/dsh-plugin-radar) | 1.4k star，自动发现 | 自动爬 dsh-plugin topic | ✅ 预期自动覆盖 |
+
+**结论**：dsh-plugin topic 是最关键的一把钥匙——dsh-plugin.org、radar、bruc3van 都靠它自动发现。仓库必须始终保留该 topic 与有效描述。
+
+## 八、社区发帖进展
+
+| 平台 | 状态 |
+|---|---|
+| Linux.do | ⏳ 待登录（CDP 窗口已就绪，登录后即可自动填表） |
+| V2EX | ⏳ 待登录 |
+| Reddit r/DeepSeek | ⏳ 待登录 |
+
+登录后由 CDP 自动填标题/正文，人工点发布。
