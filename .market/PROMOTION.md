@@ -229,3 +229,26 @@ chenbin2004sz@163.com. Stars appreciated if you find it useful.
 - ✅ dsh-plugin.org 收录状态为**已验证**（收录时间 2026-10-16，页面更新 2026-10-26）
 - ✅ GitHub 仓库描述含「DSH 模型整理（模型列表整理）」，topics 含 model-tidy / model-list-tidy
 - ✅ npm latest = 1.2.3（engines.dsh / engines.node / dshReleases 齐备）
+
+## 十、生态市场大多由 topic 自动驱动（2026-10-27 实测）
+
+**官方入口就是 GitHub topic**：DeepSeek Harness 官网（deepseek.com/harness）的「社区插件」链接直接指向
+`https://github.com/topics/dsh-plugin`。也就是说，**打好 `dsh-plugin` topic 就是官方认可的曝光方式**，
+不需要向任何官方目录提交申请。
+
+已实测确认收录（无需额外申请）：
+
+| 市场 | 规模 | 收录机制 | 验证 |
+|---|---|---|---|
+| [bradeGithub/DSH-Plugins-Marketplace](https://github.com/bradeGithub/DSH-Plugins-Marketplace) | 192 star，9500+ 插件 | CI 每 2 小时扫 `topic:dsh-plugin`，自动写入 registry.json | ✅ registry.json 命中 |
+| [AwesomeHou/dsh-plugin-marketplace](https://github.com/AwesomeHou/dsh-plugin-marketplace) | 33 star | 运行时全量分页拉取 topic | ✅ 按 topic 实时检索 |
+| [dsh-plugin.org](https://dsh-plugin.org) | 17,826 仓库 | topic 自动索引 | ✅ 已验证收录 |
+| [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) | 2 万 star | PR 收录（已合并） | ✅ 已收录 |
+| [dshmarket.com](https://dshmarket.com) | 镜像 | 跟随上游 | ✅ 同步 |
+
+**topic 可见性验证**：GitHub 搜索 `topic:dsh-plugin dsh-model-tidy` → 精确命中本仓库（1 条结果）。
+
+**结论**：生态内 10+ 个插件市场绝大多数是 topic 驱动的自动同步，我们的 `dsh-plugin` topic 已覆盖它们。
+需要人工 PR 的只有少数精选目录（已提交 3 个 PR）。真正缺的不是「更多目录」，而是社区口碑与 Star。
+
+**注意**：Linux.do 登录页 DOM 中出现「禁止 AI 生成内容」的声明，star 已决定不参与该站点。
