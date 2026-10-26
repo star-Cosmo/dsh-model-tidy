@@ -2,6 +2,8 @@
 
 [中文](README.md) · [English](README.en.md) · [日本語](README.ja.md) · **Русский**
 
+[![Listed on DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/zh/plugins/star-cosmo/dsh-model-tidy)
+
 Плагин для DeepSeek Harness, который приводит в порядок меню выбора модели: вы решаете, какие модели показывать, даёте понятные имена и моделям, и каналам, расставляете их в удобном для себя порядке и сохраняете тарифный коэффициент, указанный провайдером.
 
 ![Раздел «Модели: порядок» в настройках](docs/screenshots/main.png)

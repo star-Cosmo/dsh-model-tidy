@@ -2,6 +2,8 @@
 
 [中文](README.md) · [English](README.en.md) · **日本語** · [Русский](README.ru.md)
 
+[![Listed on DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/zh/plugins/star-cosmo/dsh-model-tidy)
+
 DeepSeek Harness のモデル選択メニューを整理するプラグインです。どのモデルを表示するかを選び、モデルにもチャネルにも覚えやすい名前を付け、使いやすい順序に並べ、プロバイダーが表示名に付けている従量倍率を保ちます。
 
 ![モデル整理の設定画面](docs/screenshots/main.png)

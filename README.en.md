@@ -2,6 +2,8 @@
 
 [中文](README.md) · **English** · [日本語](README.ja.md) · [Русский](README.ru.md)
 
+[![Listed on DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/zh/plugins/star-cosmo/dsh-model-tidy)
+
 A DeepSeek Harness plugin that keeps the model selector tidy — choose which
 models appear, give models and channels names you recognise, arrange them in an
 order you define, and keep the billing rate the provider published.

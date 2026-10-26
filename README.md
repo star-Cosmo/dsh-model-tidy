@@ -2,6 +2,8 @@
 
 **中文** · [English](README.en.md) · [日本語](README.ja.md) · [Русский](README.ru.md)
 
+[![Listed on DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/zh/plugins/star-cosmo/dsh-model-tidy)
+
 一个让 DeepSeek Harness 的模型选择器保持整洁的插件——决定哪些模型出现、给模型和渠道起你认得的名字、按你觉得顺手的顺序排列，并保住厂商标注的计费倍率。
 
 ![模型整理设置页](docs/screenshots/main.png)
