@@ -221,3 +221,11 @@ chenbin2004sz@163.com. Stars appreciated if you find it useful.
 | Reddit r/DeepSeek | ⏳ 待登录 |
 
 登录后由 CDP 自动填标题/正文，人工点发布。
+
+## 九、已完成的可见度动作（2026-10-27）
+
+- ✅ GitHub Release：https://github.com/star-Cosmo/dsh-model-tidy/releases/tag/v1.2.3 （首个 Release，含中英双语说明与安装命令）
+- ✅ 四份 README 顶部加「Listed on DSH Plugin Hub」徽章，回链 dsh-plugin.org 收录页
+- ✅ dsh-plugin.org 收录状态为**已验证**（收录时间 2026-10-16，页面更新 2026-10-26）
+- ✅ GitHub 仓库描述含「DSH 模型整理（模型列表整理）」，topics 含 model-tidy / model-list-tidy
+- ✅ npm latest = 1.2.3（engines.dsh / engines.node / dshReleases 齐备）
